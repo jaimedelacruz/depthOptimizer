@@ -49,7 +49,7 @@ if __name__ == "__main__":
     mu_x = 1.0
     mu_y = 0.65
 
-    if(np.abs(mu_x) < 0.999 and np.abs(mu_y) < 0.999):
+    if(np.abs(mu_x) < 0.999 or np.abs(mu_y) < 0.999):
         #
         # Init slanter object
         #
