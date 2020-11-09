@@ -4,7 +4,7 @@ A depth optimization tool for 3D rMHD simulations.
 ## Description
 This code precalculates a log tau_500 scale, optimizes the depth-scale for radiative transfer calculations and optionally fills the atom population densities of a 6-level H atom.
 
-The optimization algorithm is based on those found in the MULTI code (Carlsson 1986), but with the addition of a search for gradients in velocity. The code operates in parallel in a share memory machine.
+The optimization algorithm is based on those found in the MULTI code (Carlsson 1986), but with the addition of a search for gradients in velocity. The code operates in parallel in a shared memory machine.
 
 The input/ouput is done via FITS files. The file has dimensions [Ny, Nx, 16, Nz], where optimization is done along the z-axis. The variable ordering along the 3rd axis is: [z, ltau (output), Tg, Vz, Vturb, Bx, By, Bz, Ne, rho, nHI_0, nHI_1, nHI_2, nH1_3, nH1_4, NHII].
 
@@ -25,3 +25,7 @@ The code requires a C++-17 compiler: GCC from version 7, clang++ from version 6 
 
 Just type make in the src/ folder.
 
+## Python tools
+
+In the python folder I have also included tools that allow slanting the properties of a 3D MHD model and projecting the velocity and magnetic field vector.
+I have included one example that shows how to use the slant/projection tools and the depth optimization tools together.
