@@ -146,7 +146,7 @@ namespace ml{
       constexpr static const U G[6]    = {2,8,18,32,50,1};
       
       U const BKT = BK * temp;
-      U pp[6] = {}, ein[6] = {}, pf[6] = {};
+      U pp[6] = {};//, ein[6] = {}, pf[6] = {};
 
       
       // --- solve EOS for H --- //
@@ -162,26 +162,23 @@ namespace ml{
 
       
       
-      // -- get partition function at this temperature --- //
-      
-      int const npf = pfn::partition_f<U>(0, temp, Pe/BKT, (Pg-Pe)/BKT, ein, pf, true);
-      
-
-      
       // --- Solve Boltzmann eq. for bound levels --- //
+      
+      double nH1tot = 1.0;
+      int const nLev1 = nLev-1;
+      H[0]     = 1.0;
+      H[nLev1] = nH2;
 
-      H[5] = nH2;
-      double nHtot = 0.0; 
-      for(int ii=0; ii<nLev; ++ii){
-	H[ii] = (G[ii] / pf[0] * exp(-ELEV[ii]/BKT)) * nH1;
-	nHtot += H[ii];
+      for(int ii = 1; ii<nLev1; ++ii){
+	H[ii] = (G[ii] / G[0]) * exp(-ELEV[ii]/BKT); // nH_i / nH_0
+	nH1tot += H[ii]; // nHI / nHI_0
       }
 
       
-      // --- preserve particle density within the 6 levels --- //
+      // --- Calculate (nHI_i / nHI_0) x nHI_0 to get the actual level populations --- //
       
-      nHtot = nH1 / nHtot; 
-      for(int ii=0; ii<nLev; ++ii) H[ii] *= nHtot;
+      nH1tot = nH1 / nH1tot;
+      for(int ii=0; ii<nLev1; ++ii) H[ii] *=nH1tot;
     }
 
     // ------------------------------------------------------------------------ //
@@ -273,13 +270,13 @@ namespace ml{
 
       for(int kk=kk0; kk<= kk1; ++kk){
 	T const tdiv = std::abs(log10(temp[kk]) - log10(temp[kk-1])) * log11;
-	T const rdiv = std::abs(log10(rho[kk]) - log10(rho[kk-1])) * log11;
-	T const vdiv = std::abs(rho[kk] - rho[kk-1]) * vscal;
+	T const rdiv = std::abs(log10(rho[kk])  - log10(rho[kk-1])) * log11;
+	T const vdiv = std::abs(vz[kk] - vz[kk-1]) * vscal;
 	T const ldiv = std::abs(tau[kk] - tau[kk-1]) * 10;
 
 	// --- take the largest --- //
 	
-	aind[kk] = aind[kk-1] + std::max<T>(std::max<T>(std::max<T>(tdiv,rdiv), vdiv), ldiv);
+	aind[kk] = aind[kk-1] + std::max<T>(std::max<T>(std::max<T>(tdiv, rdiv), vdiv), ldiv);
       }
 
 
@@ -287,7 +284,7 @@ namespace ml{
       // --- smooth gradients --- //
       
       int const nAind = k1 - k0 + 1;
-      ipol::smooth_and_scale_gradients<T>(nAind, &aind[k0], wsmooth, nDep);
+      ipol::smooth_and_scale_gradients<T>(nAind, &aind[k0], wsmooth, nDep-1);
 
       T* __restrict__ index = ipol::arange<T>(nDep);
       T* __restrict__ buffer = new T [nDep]();
@@ -300,7 +297,7 @@ namespace ml{
       
       for(int ii = 0; ii<nTot; ++ii){
 	T* __restrict__ iVar = z + ii*nDep; 
-	ipol::hermitian<T>(nAind, &aind[k0], &iVar[k0], nDep, index, buffer);
+	ipol::linear<T>(nAind, &aind[k0], &iVar[k0], nDep, index, buffer);
 	std::memcpy(iVar, buffer, nDep*sizeof(T));
       }
       
