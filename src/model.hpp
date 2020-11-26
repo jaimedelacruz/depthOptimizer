@@ -38,7 +38,7 @@ namespace ml{
 
       // --- We might want to have the input data as float but perform
       // --- all the operations in double.
-      // --- Make a copy on the fly and copy back in the destructor --- //
+      // --- Make a copy on the fly and copy back in the destructor
 
       if(typeid(Z) == typeid(T)){
 	z = (T*)data_in; 
@@ -129,7 +129,7 @@ namespace ml{
 
     template<typename U>
     static void _fill_nH_LTE_6(int const nLev, U const& temp,  U const& Pg,
-			       U const& Pe, U* __restrict__ H, eos::witt &eos)
+			       U const& Pe, T (&H)[6] , eos::witt &eos)
     {
       constexpr static const U BK = 1.3806488E-16;
       
@@ -228,10 +228,10 @@ namespace ml{
 
     
     void Optimize(bool const fill_Hydrogen, int const convert_units, eos::witt &eos,
-		  T const temp_max, T const ltau_max, T const wsmooth = 0)const
+		  T const temp_max, T const ltau_max, int const wsmooth, int const nDep2)const
     {
       static T const log11           = 1 / log10(1.1);
-      constexpr static const T vscal = 1.0E-5 / 1.5;
+      constexpr static const T vscal = 1.0E-5 / 0.5;
 
       
       int const ndep = nDep;
@@ -254,7 +254,7 @@ namespace ml{
       int k0 = 0, k1 = nDep-1;
       for(int kk=1; kk<nDep; ++kk){
 	if((temp[kk] > temp_max) && (k0 == kk-1)) k0 = kk;
-	if(tau[kk] <= ltau_max)                   k1 = kk;
+	if( tau[kk] <= ltau_max)                  k1 = kk;
       }
       
       k1 = std::min<int>(k1+1, nDep-1);
@@ -270,8 +270,8 @@ namespace ml{
 
       for(int kk=kk0; kk<= kk1; ++kk){
 	T const tdiv = std::abs(log10(temp[kk]) - log10(temp[kk-1])) * log11;
-	T const rdiv = std::abs(log10(rho[kk])  - log10(rho[kk-1])) * log11;
-	T const vdiv = std::abs(vz[kk] - vz[kk-1]) * vscal;
+	T const rdiv = std::abs(log10(rho[kk])  - log10( rho[kk-1])) * log11;
+	T const vdiv = std::abs(vz[kk]  -  vz[kk-1]) * vscal;
 	T const ldiv = std::abs(tau[kk] - tau[kk-1]) * 10;
 
 	// --- take the largest --- //
@@ -284,10 +284,10 @@ namespace ml{
       // --- smooth gradients --- //
       
       int const nAind = k1 - k0 + 1;
-      ipol::smooth_and_scale_gradients<T>(nAind, &aind[k0], wsmooth, nDep-1);
+      ipol::smooth_and_scale_gradients<T>(nAind, &aind[k0], wsmooth, nDep2-1);
 
-      T* __restrict__ index = ipol::arange<T>(nDep);
-      T* __restrict__ buffer = new T [nDep]();
+      T* __restrict__ index = ipol::arange<T>(nDep2);
+      T* __restrict__ buffer = new T [nDep2]();
 
 
       
@@ -297,8 +297,8 @@ namespace ml{
       
       for(int ii = 0; ii<nTot; ++ii){
 	T* __restrict__ iVar = z + ii*nDep; 
-	ipol::linear<T>(nAind, &aind[k0], &iVar[k0], nDep, index, buffer);
-	std::memcpy(iVar, buffer, nDep*sizeof(T));
+	ipol::linear<T>(nAind, &aind[k0], &iVar[k0], nDep2, index, buffer);
+	std::memcpy(iVar, buffer, nDep2*sizeof(T));
       }
       
       

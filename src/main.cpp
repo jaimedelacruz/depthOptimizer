@@ -16,6 +16,7 @@
 #include <iostream>
 #include <string>
 #include <omp.h>
+#include <chrono>
 
 #include "interpolation.hpp"
 #include "model.hpp"
@@ -27,12 +28,12 @@ using namespace std;
 
 int main(int const narg, char *argv[])
 {
-  using fp = float;
+  using fp = double;
   
   // --- read input parameters --- //
   
   if(narg < 8){
-    cerr << "USAGE: ./optimizer.x filein.h5 fileout.h5 nthreads convert_units wsize tempmax taumax" << endl;
+    cerr << "USAGE: ./depthOpt.x filein.fits fileout.fits nthreads convert_units wsize tempmax taumax new_nDep" << endl;
     exit(0);
   }
 
@@ -41,21 +42,22 @@ int main(int const narg, char *argv[])
   int    const nthreads = std::max<int>(1, stoi(argv[3]));
   int    const units    = std::max<int>(0, stoi(argv[4]));
   int    const wsize    = std::max<int>(1, stoi(argv[5]));
-  fp     const tempmax  = std::max<int>(1, stod(argv[6]));
-  fp     const taumax   = std::max<int>(1, stod(argv[7]));
+  fp     const tempmax  = std::max<fp>(100000, stod(argv[6]));
+  fp     const taumax   = std::max<fp>(1, stod(argv[7]));
 
+
+  
   cout << "main: in="<<filein<<", out="<<fileout<<", nthreads="<<nthreads<<endl;
   cout << "main: convert_to_SI="<<units<<", smooth_window="<<wsize<<", Tg_max="<<tempmax<<", ltau_max="<<taumax<<endl<<endl;
 
 
   
   // --- Read input model --- //
-
+  
   int nt = 0;
   ml::Model<fp> model =  fits::readModel<fp>(filein);
-
-
-
+  int    const nDep2  = ((narg == 9) ? stoi(argv[8]) : model.nDep);
+  
   
 
   // --- do I need to fill hydrogen? --- //
@@ -77,8 +79,8 @@ int main(int const narg, char *argv[])
   long const npix = nx*ny;
   int oper = -1, per = 0;
 
+  std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
-  
   // --- parallel loop --- //
 #pragma omp parallel default(shared) firstprivate(ipix, tid, xx, yy, eos) num_threads(nthreads)
   {
@@ -95,7 +97,7 @@ int main(int const narg, char *argv[])
 
 
       // --- extract pixel and optimize --- //
-      model.template operator()<double>(yy,xx).Optimize(fill_hydrogen, units, *eos, tempmax, taumax, wsize);
+      model.template operator()<double>(yy,xx).Optimize(fill_hydrogen, units, *eos, tempmax, taumax, wsize, nDep2);
 
 
       // --- progress count --- //
@@ -110,12 +112,15 @@ int main(int const narg, char *argv[])
 
     delete eos;
   }// parallel block
-  fprintf(stderr, "\rprocessing -> %3d%s\n", 100,"%");
+  std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+  double const dt = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000;
+
+  fprintf(stderr, "\rprocessing -> %3d%s, total time %d s\n", 100,"%", int(dt+0.5));
 
 
   // --- write to disk --- //
 
-  fits::writeModel(model, fileout);
+  fits::writeModel(model, fileout, nDep2);
   
   
 }

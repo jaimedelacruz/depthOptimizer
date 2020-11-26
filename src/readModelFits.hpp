@@ -192,7 +192,7 @@ namespace fits{
   // *************************************************** //
 
   template<typename T, typename U>
-  void write_fits(std::string const& filename, std::vector<long> const& dims,  T* data, bool const verbose)
+  void write_fits(std::string const& filename, std::vector<long> const& dims,  T* data, bool const verbose, int const nDep)
   {
     bool over = false;
     if(file_exists(filename)){
@@ -221,43 +221,65 @@ namespace fits{
     for(int ii=0;ii<naxes2;ii++) idim[naxes-ii-1] = (long int)dims[ii];
 
   
-  if     (typeid(U) == typeid(unsigned char)){
-    dtype = TBYTE;
-    fits_create_img(fptr, BYTE_IMG, naxes, &idim[0], &status);
-  }else if(typeid(U) == typeid(short int)){
-    dtype = TSHORT;
-    fits_create_img(fptr, SHORT_IMG, naxes, &idim[0], &status);
-  }else if(typeid(U) == typeid(int)){
-    dtype = TINT;
-    fits_create_img(fptr, LONG_IMG, naxes, &idim[0], &status);
-  }else if(typeid(U) == typeid(long int)){
-    dtype = TLONGLONG;
-    fits_create_img(fptr, LONGLONG_IMG, naxes, &idim[0], &status);
-  }else if(typeid(U) == typeid(float)){
-    dtype = TFLOAT;
-    fits_create_img(fptr, FLOAT_IMG, naxes, &idim[0], &status);
-  }else if(typeid(U) == typeid(double)){
-    dtype = TDOUBLE;
-    fits_create_img(fptr, DOUBLE_IMG, naxes, &idim[0], &status);
-  }else{
-    fprintf(stderr,"fits_save_one: Error, unsupported type\n");
-    return;
-  }
+    if     (typeid(U) == typeid(unsigned char)){
+      dtype = TBYTE;
+      fits_create_img(fptr, BYTE_IMG, naxes, &idim[0], &status);
+    }else if(typeid(U) == typeid(short int)){
+      dtype = TSHORT;
+      fits_create_img(fptr, SHORT_IMG, naxes, &idim[0], &status);
+    }else if(typeid(U) == typeid(int)){
+      dtype = TINT;
+      fits_create_img(fptr, LONG_IMG, naxes, &idim[0], &status);
+    }else if(typeid(U) == typeid(long int)){
+      dtype = TLONGLONG;
+      fits_create_img(fptr, LONGLONG_IMG, naxes, &idim[0], &status);
+    }else if(typeid(U) == typeid(float)){
+      dtype = TFLOAT;
+      fits_create_img(fptr, FLOAT_IMG, naxes, &idim[0], &status);
+    }else if(typeid(U) == typeid(double)){
+      dtype = TDOUBLE;
+      fits_create_img(fptr, DOUBLE_IMG, naxes, &idim[0], &status);
+    }else{
+      fprintf(stderr,"fits_save_one: Error, unsupported type\n");
+      return;
+    }
     
-  //dtype = getFitsType<T>::run();
-
-    fits_write_img(fptr, dtype, fpixel, npix, data, &status); // Write the array of integers to the image
+    //dtype = getFitsType<T>::run();
+    int const nDep2 = dims[3];
+    int const nVar  = dims[2]; 
+    int const nWrite = dims[0]*dims[1];
+    int const pixel_stride = nVar*nDep;
+    long iPix[4] = {1,1,1,1};
+    
+    U* __restrict__ buffer = new U [nDep2*nVar]();
+    
+    for(long ii = 0; ii<nWrite; ++ii){
+      
+      long const yy = ii/dims[0];
+      long const xx = ii - yy*dims[0];
+      
+      iPix[2] = xx+1;
+      iPix[3] = yy+1;
+      
+      for(int vv=0; vv<nVar; ++vv)
+	for(int kk=0; kk<nDep2; ++kk)
+	  buffer[nDep2*vv+kk] = U(data[ii*pixel_stride + vv*nDep + kk]);
+      
+      fits_write_pix(fptr, dtype, iPix, nDep2*nVar, buffer, &status); // Write the array of integers to the image
+      
+    }
+    
     fits_close_file(fptr, &status);
+
+    delete [] buffer;
   }
-
-
 
   // *************************************************** //
 
-  template<typename T> void writeModel(ml::Model<T> &m, std::string const& nameout)
+  template<typename T> void writeModel(ml::Model<T> &m, std::string const& nameout, int const nDep2)
   {   
-    std::vector<long> dim = {m.ny, m.nx, ml::NVAR+m.nHydrogen, m.nDep};
-    write_fits<T,float>(nameout, dim, &m.d(0,0,0,0), true);
+    std::vector<long> dim = {m.ny, m.nx, ml::NVAR+m.nHydrogen, nDep2};
+    write_fits<T,double>(nameout, dim, &m.d(0,0,0,0), true, m.nDep);
   }
 
   // *************************************************** //
