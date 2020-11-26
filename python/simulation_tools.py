@@ -123,11 +123,10 @@ class SlantModel:
         # Precompute shift for each plane of the model
         #
         zx2 = (z - z[self.idx]) / np.abs(mu_x) + z[self.idx]    
-        self.shift_x = -np.sign(mu_x)* np.abs(zx2 - zx2[self.idx]) * np.sqrt(1.0 - mu_x**2) / x.max() * (x.size - 1.0)
+        self.shift_x = -np.sign(mu_x)*(zx2 - zx2[self.idx]) * np.sqrt(1.0 - mu_x**2) / x.max() * (x.size - 1.0)
 
         zy2 = (z - z[self.idx]) / np.abs(mu_y) + z[self.idx]
-        self.shift_y = -np.sign(mu_y)* np.abs(zy2 - zy2[self.idx]) * np.sqrt(1.0 - mu_y**2) / y.max() * (y.size - 1.0)
-
+        self.shift_y = -np.sign(mu_y)*(zy2 - zy2[self.idx]) * np.sqrt(1.0 - mu_y**2) / y.max() * (y.size - 1.0)
         
         #
         # stretch z-axis and store it
@@ -165,7 +164,11 @@ class SlantModel:
 
         per = 0; oper = -1; scl = 100.0 / (nz-1.0)
         for kk  in range(nz):
-            var1[kk] = fftshift_image(var[kk], dy=self.shift_y[kk], dx=self.shift_x[kk], isPeriodic = True)
+            if((np.abs(self.shift_y[kk])<1.e-3) and (np.abs(self.shift_x[kk])<1.e-3)):
+                var1[kk] = var[kk]
+            else:
+                var1[kk] = fftshift_image(var[kk], dy=self.shift_y[kk], dx=self.shift_x[kk], isPeriodic = True)
+                
             per = int(kk*scl)
             if(per != oper):
                 oper = per

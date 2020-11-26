@@ -122,8 +122,9 @@ if __name__ == "__main__":
     smooth_opt      = 15
     temperature_cut = 50000
     ltau_max        = 2
+    new_ndep        = nz
 
-    of.system('./dephOpt.x tmp.fits tmp_opt.fits {0} {1} {2} {3} {4}'.format(nthreads, convert_units, smooth_opt, temperature_cut, ltau_max))
+    of.system('./dephOpt.x tmp.fits tmp_opt.fits {0} {1} {2} {3} {4} {5}'.format(nthreads, convert_units, smooth_opt, temperature_cut, ltau_max, new_ndep))
 
 
     
