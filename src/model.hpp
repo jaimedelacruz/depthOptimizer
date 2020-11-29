@@ -186,7 +186,7 @@ namespace ml{
     static void _get_tau_scale(int const ndep, int const nLev, eos::witt &eos, const T* const __restrict__ z,
 			       const T* const __restrict__ temp,
 			       T* __restrict__ rho, T* __restrict__ Ne, T* __restrict__ ltau,
-			       T* __restrict__ nH, bool const solve_nh)
+			       T* __restrict__ nH, bool const solve_nh, int const k0, int const k1)
     {
       constexpr static const double BK = 1.3806488E-16;
       double Wav = 5000.;
@@ -195,10 +195,16 @@ namespace ml{
 
       // --- Loop through all depth and compute the relevant quantities --- //
 
-      for(int kk=0; kk<ndep; ++kk){
+      for(int kk=k0; kk <= k1; ++kk){
+	
 	double Pe  = Ne[kk]*BK*temp[kk];
 	double Pg = eos.pg_from_rho<double>(double(temp[kk]), double(rho[kk]), Pe);
-
+	
+#if defined(DEBUG)
+	if((Pg != Pg) || (Pg < 0) || (rho < 0)){
+	  fprintf(stderr,"EOS error: rho=%e, Pe=%e, Pg=%e, temp=%e\n", rho[kk], Pe, Pg, temp[kk]);
+	}
+#endif
 	// --- Solve nH ? --- //
 	
 	if(solve_nh){
@@ -212,14 +218,15 @@ namespace ml{
 
 	double opac = 0;
 	eos.contOpacity<double>(double(temp[kk]), Pg, Pe, 1, &Wav, &opac);
-	alpha_500[kk] = opac;
+	if((opac != opac) || (opac<0)) opac = 1.e-33;
+	alpha_500[kk] = opac;	  
       }
 
 
       
       // --- Compute Tau-scale --- //
       
-      ipol::bezier_integral(ndep, z, alpha_500, ltau);
+      ipol::trapezoidal_integral(k1-k0+1, &z[k0], &alpha_500[k0], &ltau[k0]);
       delete [] alpha_500;
     }
 
@@ -241,24 +248,26 @@ namespace ml{
       if(convert_units)
 	to_CGS();
 
-
-
       
-      // --- calculate tau scale and fill nH if neccesary --- //
-
-      _get_tau_scale(ndep, nHydrogen, eos, z, temp, rho, Ne, tau, nH, bool(fill_Hydrogen));
-
-      
-      // --- Find limits --- //
+      // --- Find upper limit --- //
 
       int k0 = 0, k1 = nDep-1;
       for(int kk=1; kk<nDep; ++kk){
 	if((temp[kk] > temp_max) && (k0 == kk-1)) k0 = kk;
-	if( tau[kk] <= ltau_max)                  k1 = kk;
       }
       
-      k1 = std::min<int>(k1+1, nDep-1);
-      if((k1-k0) < nDep/3) k1 = nDep-1;
+
+      // --- calculate tau scale and fill nH if neccesary --- //
+
+      _get_tau_scale(ndep, nHydrogen, eos, z, temp, rho, Ne, tau, nH, bool(fill_Hydrogen), k0, k1);
+
+
+      // --- now find lower limit based on ltau500 --- //
+      
+      for(int kk=k0+1; kk<nDep;++kk){
+	if( tau[kk] <= ltau_max)                  k1 = kk;
+	else break;
+      }
       
       int const kk0 = k0+1;
       int const kk1 = k1; 
@@ -274,12 +283,14 @@ namespace ml{
 	T const vdiv = std::abs(vz[kk]  -  vz[kk-1]) * vscal;
 	T const ldiv = std::abs(tau[kk] - tau[kk-1]) * 10;
 
+	
 	// --- take the largest --- //
 	
 	aind[kk] = aind[kk-1] + std::max<T>(std::max<T>(std::max<T>(tdiv, rdiv), vdiv), ldiv);
       }
-
-
+      
+      std::vector<T> aind2(nDep,0);
+      memcpy(&aind2[0], aind, sizeof(T)*nDep);
       
       // --- smooth gradients --- //
       
@@ -296,12 +307,27 @@ namespace ml{
       int const nTot  = NVAR + nHydrogen;
       
       for(int ii = 0; ii<nTot; ++ii){
+	
 	T* __restrict__ iVar = z + ii*nDep; 
-	ipol::linear<T>(nAind, &aind[k0], &iVar[k0], nDep2, index, buffer);
+	ipol::hermitian<T>(nAind, &aind[k0], &iVar[k0], nDep2, index, buffer);
 	std::memcpy(iVar, buffer, nDep2*sizeof(T));
       }
-      
-      
+
+
+      // --- check minimum dz --- //
+
+      T dz = z[0]-z[1];
+      for(int ii=2; ii<nDep2; ++ii){
+	dz = std::min(z[ii-1]-z[ii], dz);
+      }
+      if(dz < 0.1){
+	std::cerr<<"min dz = "<<dz*1.e-5<<" "<<k0<<" "<<k1<<std::endl;
+	for(int ii=0; ii<nDep2; ++ii){
+	  fprintf(stderr,"[%3d] %13.3f %13.5f %13.5f %13.5f\n", ii, z[ii], temp[ii], vz[ii], aind2[k0+ii]);
+	}
+	exit(1);
+      }
+	
       // --- clean up --- //
       
       delete [] buffer;

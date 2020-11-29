@@ -33,7 +33,7 @@ int main(int const narg, char *argv[])
   // --- read input parameters --- //
   
   if(narg < 8){
-    cerr << "USAGE: ./depthOpt.x filein.fits fileout.fits nthreads convert_units wsize tempmax taumax new_nDep" << endl;
+    cerr << "USAGE: ./depthOpt.x filein.fits fileout.fits nthreads convert_units wsize tempmax taumax new_nDep (optional)" << endl;
     exit(0);
   }
 
@@ -42,7 +42,7 @@ int main(int const narg, char *argv[])
   int    const nthreads = std::max<int>(1, stoi(argv[3]));
   int    const units    = std::max<int>(0, stoi(argv[4]));
   int    const wsize    = std::max<int>(1, stoi(argv[5]));
-  fp     const tempmax  = std::max<fp>(100000, stod(argv[6]));
+  fp     const tempmax  = std::max<fp>(15000, stod(argv[6]));
   fp     const taumax   = std::max<fp>(1, stod(argv[7]));
 
 

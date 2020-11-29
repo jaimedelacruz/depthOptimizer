@@ -222,6 +222,37 @@ namespace ipol{
     delete [] yp;
   }
 
+  // ********************************************************************************* //
+  
+  template<typename T> void trapezoidal_integral(int const N, const T* const __restrict__ x,
+						 const T* const __restrict__ y, T* __restrict__ res)
+  {
+    
+    // --- integrate each interval --- //
+    
+    res[0] = 0;
+    for(int ii=1; ii<N; ++ii)          
+      res[ii] =  std::abs(x[ii]-x[ii-1]) * (y[ii-1] + y[ii]) / 2;
+    
+
+
+    // --- extrapolate tau_500 at the top boundary --- //
+    
+    T const y1 = res[1];
+    T const y2 = y1 + res[2];
+    res[0] = exp(2*log(y1) - log(y2));
+
+
+    
+    // --- Cumulative sum and compute log10 --- //
+    double iTau = 0;
+    
+    for(int ii=0; ii<N; ++ii){
+      iTau += res[ii];
+      res[ii] =  log10(iTau);
+    }
+    
+  }
 
   // ********************************************************************************* //
 
@@ -238,7 +269,9 @@ namespace ipol{
       int const Nw2 = N+w2;
       
       T* __restrict__ d_orig = new T [N+2*w2];
+      
       std::memcpy(&d_orig[w2], d, sizeof(T)*N);
+      
       for(int ii=0; ii<w2; ++ii){
 	d_orig[ii]      = d[0];
 	d_orig[ii+Nw2]  = d[N1]; 

@@ -101,6 +101,7 @@ eos::witt::witt(std::vector<line> &lines, int n, float *ab, double grav): avweig
   // mu'= sum amass_i * abund_i / amass_0 
   muH = avweight / phyc::AMASS[0] / abund[0]; //avweight is here the total sum, until we normalize
   rho_from_H = muH * phyc::AMASS[0]*phyc::AMU / phyc::BK;
+
   
   /* --- Now compute average particle weight --- */
   
@@ -382,14 +383,15 @@ template <class T> T eos::witt::pg_from_rho(T temp, T rho, T &Pe)
 
   /* --- Init Pgas assuming no molecules --- */
 
-  T pgas = rho / avweight * phyc::BK * temp;
+  T pgas = rho / avweight * phyc::BK * temp + Pe;
   Pe = pe_from_pg<T>(temp, pgas);
+
   T irho = rho_from_pe<T>(temp, Pe, pgas);
   
 
   /* --- Iterate until you get a Pe that is consistent with rho --- */
 
-  double dif =  1.0;
+  double dif = fabs((irho - rho) / (rho));
   
   int it = 0;
   while ((dif >= 1.e-5) && (it++ < 200)){
