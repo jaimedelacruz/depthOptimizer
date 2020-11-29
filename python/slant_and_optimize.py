@@ -58,15 +58,15 @@ if __name__ == "__main__":
         #
         # slant all variables
         #
-        Tg  = slanter.slantVariable(Tg)
+        Tg  = slanter.slantVariable(Tg, useLog=True)
         Vz  = slanter.slantVariable(Vz)
         Vy  = slanter.slantVariable(Vy)
         Vx  = slanter.slantVariable(Vx)
         Bz  = slanter.slantVariable(Bz)
         By  = slanter.slantVariable(By)
         Bx  = slanter.slantVariable(Bx)
-        rho = slanter.slantVariable(rho)
-        Ne  = slanter.slantVariable(Ne)
+        rho = slanter.slantVariable(rho, useLog=True)
+        Ne  = slanter.slantVariable(Ne,  useLog=True)
 
         #
         # Get new z-scale and copy it to a 3D cube

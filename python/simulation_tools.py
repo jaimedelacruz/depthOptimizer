@@ -9,7 +9,7 @@ Model slant+projection tools
 
 # *****************************************************************************
 
-def fftshift_image(im_in, dy=0.0, dx=0.0, isPeriodic=True):
+def fftshift_image(im_in, dy=0.0, dx=0.0, isPeriodic=True, useLog=False):
     """
     FFTSHIFT_IMAGE, shifts an image by dy, dx pixels using 
     Fourier transforms.
@@ -32,12 +32,16 @@ def fftshift_image(im_in, dy=0.0, dx=0.0, isPeriodic=True):
     #
     # scale image to numbers and amplitudes around 1
     #
-    im = np.ascontiguousarray(im_in, dtype='float64')
+    if(useLog):
+        im = np.log(np.ascontiguousarray(im_in, dtype='float64'))
+    else:
+        im = np.ascontiguousarray(im_in, dtype='float64')
+        
     ny, nx = im.shape
     me = im.mean()
     st = np.std(im)
     
-    im = (im-me)/st 
+    im = (im-me)/st  
     
     #
     # FFT of the input image, check for periodicity
@@ -72,8 +76,11 @@ def fftshift_image(im_in, dy=0.0, dx=0.0, isPeriodic=True):
     if(np.isinf(st) or np.isnan(st)):
         print(st, me)
         set_trace()
-        
-    return (np.real((np.fft.irfft2(ft * np.exp(-2j*np.pi*(fx*-dx + fy*-dy))))[0:ny,0:nx])*st)+me
+
+    if(useLog):
+        return np.exp((np.real((np.fft.irfft2(ft * np.exp(-2j*np.pi*(fx*-dx + fy*-dy))))[0:ny,0:nx])*st)+me)
+    else:
+        return (np.real((np.fft.irfft2(ft * np.exp(-2j*np.pi*(fx*-dx + fy*-dy))))[0:ny,0:nx])*st)+me
 
 
 # *****************************************************************************
@@ -146,7 +153,7 @@ class SlantModel:
         
     # ----------------------------------------------------------------------------------
 
-    def slantVariable(self, var):
+    def slantVariable(self, var, useLog=False):
         """
         Slants a variable of the model. 
         This routine should be applied to all variables. 
@@ -167,7 +174,7 @@ class SlantModel:
             if((np.abs(self.shift_y[kk])<1.e-3) and (np.abs(self.shift_x[kk])<1.e-3)):
                 var1[kk] = var[kk]
             else:
-                var1[kk] = fftshift_image(var[kk], dy=self.shift_y[kk], dx=self.shift_x[kk], isPeriodic = True)
+                var1[kk] = fftshift_image(var[kk], dy=self.shift_y[kk], dx=self.shift_x[kk], isPeriodic = True, useLog=useLog)
                 
             per = int(kk*scl)
             if(per != oper):
